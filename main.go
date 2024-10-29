@@ -7,37 +7,52 @@ import (
 	"github.com/rivo/tview"
 )
 
-func main() {
-	app := tview.NewApplication()
+func searchableList(itemsName string, list *tview.List) {
+	search := ""
 
-	// Input field for search
-	inputField := tview.NewInputField().
-		SetLabel("Search: ").
-		SetFieldWidth(20)
-
-	// List for tags with border and title
-	listTags := tview.NewList().
-		AddItem("tag 1", "", '1', nil).
-		AddItem("tag 2", "", '2', nil).
-		AddItem("tag 3", "", '3', nil).
-		AddItem("tag 4", "", '4', nil).
-		AddItem("tag 5", "", '5', nil)
-
-	searchTag := ""
-
-	listTags.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+	list.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
 		case tcell.KeyRune:
 			keyStr := string(event.Rune())
-			searchTag += keyStr
-			listTags.SetTitle(fmt.Sprintf("Tags (searching %s)", searchTag))
+			search += keyStr
+			list.SetTitle(fmt.Sprintf("%s (searching %s)", itemsName, search))
 		case tcell.KeyBackspace, tcell.KeyBackspace2:
-			searchTag = searchTag[:len(searchTag)-1]
-			listTags.SetTitle(fmt.Sprintf("Tags (searching %s)", searchTag))
+			if len(search) > 0 {
+				search = search[:len(search)-1]
+			}
+
+			list.SetTitle(fmt.Sprintf("%s (searching %s)", itemsName, search))
 		}
 
 		return event
 	})
+
+}
+
+func makeListTags() *tview.List {
+	listTags := tview.NewList().
+		AddItem("all", "", 0, nil).
+		AddItem("tag 2", "", 0, nil).
+		AddItem("tag 3", "", 0, nil).
+		AddItem("tag 4", "", 0, nil).
+		AddItem("tag 5", "", 0, nil)
+
+	searchableList("Tags", listTags)
+
+	return listTags
+}
+
+func main() {
+	app := tview.NewApplication()
+
+	// List for tags with border and title
+
+	listTags := makeListTags()
+	// listTags.SetTitle(fmt.Sprintf("selected index %d", listTags.GetCurrentItem()))
+
+	// Input field for search
+	inputField := tview.NewInputField().
+		SetLabel("Search: ")
 
 	listTags.SetBorder(true)
 	listTags.SetTitle("Tags")
@@ -79,6 +94,7 @@ func main() {
 				app.SetFocus(listTags)
 			}
 		}
+
 		return event
 	})
 
