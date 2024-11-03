@@ -5,6 +5,7 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
+	"strings"
 )
 
 func searchableList(itemsName string, list *tview.List) {
@@ -16,12 +17,14 @@ func searchableList(itemsName string, list *tview.List) {
 			keyStr := string(event.Rune())
 			search += keyStr
 			list.SetTitle(fmt.Sprintf("%s (searching %s)", itemsName, search))
+			findItemsList(list, retrieveTagNames(), search)
 		case tcell.KeyBackspace, tcell.KeyBackspace2:
 			if len(search) > 0 {
 				search = search[:len(search)-1]
 			}
 
 			list.SetTitle(fmt.Sprintf("%s (searching %s)", itemsName, search))
+			findItemsList(list, retrieveTagNames(), search)
 		}
 
 		return event
@@ -29,13 +32,44 @@ func searchableList(itemsName string, list *tview.List) {
 
 }
 
+func findItemsList(tviewList *tview.List, itemNames []string, searchingFor string) {
+	currentIndex := tviewList.GetCurrentItem()
+	var currentLabel string
+
+	// If an item is selected, get its label
+	if currentIndex >= 0 && currentIndex < tviewList.GetItemCount() {
+		currentLabel, _ = tviewList.GetItemText(currentIndex)
+	}
+
+	tviewList.Clear()
+
+	for index, itemName := range itemNames {
+		strippedItemName := strings.TrimSpace(strings.ToLower(itemName))
+		strippedSearchingFor := strings.TrimSpace(strings.ToLower(searchingFor))
+
+		if strings.Contains(strippedItemName, strippedSearchingFor) || strippedSearchingFor == "" {
+			tviewList.AddItem(itemName, "", 0, nil)
+
+			if currentLabel == itemName {
+				tviewList.SetCurrentItem(index)
+			}
+		}
+	}
+
+}
+
+func retrieveTagNames() []string {
+	return []string{"all", "tag1", "tag2", "abc", "ab", "abcde"}
+}
+
 func makeListTags() *tview.List {
-	listTags := tview.NewList().
-		AddItem("all", "", 0, nil).
-		AddItem("tag 2", "", 0, nil).
-		AddItem("tag 3", "", 0, nil).
-		AddItem("tag 4", "", 0, nil).
-		AddItem("tag 5", "", 0, nil)
+	fixedItems := retrieveTagNames()
+
+	listTags := tview.NewList()
+
+	for _, tagName := range fixedItems {
+		listTags.AddItem(tagName, "", 0, nil)
+	}
 
 	searchableList("Tags", listTags)
 
