@@ -86,35 +86,35 @@ func main() {
 
 	// Input field for search
 	inputField := tview.NewInputField().
-		SetLabel("Search: ")
+		SetLabel("Search/Create: ")
 
 	listTags.SetBorder(true)
 	listTags.SetTitle("Tags")
 
 	// Main list to show items
-	list := tview.NewList().
+	listNotes := tview.NewList().
 		AddItem("Item 1", "Description 1", '1', nil).
 		AddItem("Item 2", "Description 2", '2', nil).
 		AddItem("Item 3", "Description 3", '3', nil)
 
-	// Right-side text/code view
-	textView := tview.NewTextView().
-		SetText("Code or text will be displayed here...").
-		SetDynamicColors(true).
-		SetWordWrap(true).
-		SetBorder(true).
-		SetTitle("Content")
+	textContent := tview.NewTextArea().
+		SetWrap(false).
+		SetPlaceholder("Enter text here...").
+		SetText("yooo", true)
+	textContent.SetText("truasdf", true)
+	textContent.SetTitle("Content")
+	textContent.SetBorder(true)
 
 	// Layout for the left side with fixed height for listTags
 	leftSide := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(listTags, 6, 1, true).    // Fixed height for listTags
 		AddItem(inputField, 2, 0, false). // Fixed height for input
-		AddItem(list, 0, 2, false)        // Expandable list
+		AddItem(listNotes, 0, 2, false)   // Expandable list
 
 	// Main layout with left and right sides
 	mainFlex := tview.NewFlex().
 		AddItem(leftSide, 0, 1, true).
-		AddItem(textView, 0, 2, false)
+		AddItem(textContent, 0, 2, false)
 
 	// Input capture to handle focus navigation
 	mainFlex.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
@@ -123,8 +123,10 @@ func main() {
 			if app.GetFocus() == listTags {
 				app.SetFocus(inputField)
 			} else if app.GetFocus() == inputField {
-				app.SetFocus(list)
-			} else if app.GetFocus() == list {
+				app.SetFocus(listNotes)
+			} else if app.GetFocus() == listNotes {
+				app.SetFocus(textContent)
+			} else if app.GetFocus() == textContent {
 				app.SetFocus(listTags)
 			}
 		}
