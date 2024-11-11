@@ -2,34 +2,44 @@ package main
 
 import (
 	"fmt"
-
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 	"strings"
 )
 
+func searchListInputCapture(itemsName string, list *tview.List, event *tcell.EventKey, search *string, getItems func() []string) *tcell.EventKey {
+	switch event.Key() {
+	case tcell.KeyRune:
+		keyStr := string(event.Rune())
+		*search += keyStr
+		list.SetTitle(fmt.Sprintf("%s (searching %s)", itemsName, *search))
+		findItemsList(list, getItems(), *search)
+	case tcell.KeyBackspace, tcell.KeyBackspace2:
+		if len(*search) > 0 {
+			*search = (*search)[:len(*search)-1]
+		}
+
+		list.SetTitle(fmt.Sprintf("%s (searching %s)", itemsName, *search))
+		findItemsList(list, getItems(), *search)
+	}
+
+	return event
+}
+
 func searchableList(itemsName string, list *tview.List) {
 	search := ""
 
 	list.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		switch event.Key() {
-		case tcell.KeyRune:
-			keyStr := string(event.Rune())
-			search += keyStr
-			list.SetTitle(fmt.Sprintf("%s (searching %s)", itemsName, search))
-			findItemsList(list, retrieveTagNames(), search)
-		case tcell.KeyBackspace, tcell.KeyBackspace2:
-			if len(search) > 0 {
-				search = search[:len(search)-1]
-			}
-
-			list.SetTitle(fmt.Sprintf("%s (searching %s)", itemsName, search))
-			findItemsList(list, retrieveTagNames(), search)
-		}
-
-		return event
+		return searchListInputCapture(itemsName, list, event, &search, retrieveTagNames)
 	})
+}
 
+func searchableListByTextfield(itemsName string, searchTextField *tview.InputField, list *tview.List) {
+	search := ""
+
+	searchTextField.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		return searchListInputCapture(itemsName, list, event, &search, retrieveItems)
+	})
 }
 
 func findItemsList(tviewList *tview.List, itemNames []string, searchingFor string) {
@@ -62,6 +72,10 @@ func retrieveTagNames() []string {
 	return []string{"all", "tag1", "tag2", "abc", "ab", "abcde"}
 }
 
+func retrieveItems() []string {
+	return []string{"item 1", "item 2", "item 3"}
+}
+
 func makeListTags() *tview.List {
 	fixedItems := retrieveTagNames()
 
@@ -82,11 +96,6 @@ func main() {
 	// List for tags with border and title
 
 	listTags := makeListTags()
-	// listTags.SetTitle(fmt.Sprintf("selected index %d", listTags.GetCurrentItem()))
-
-	// Input field for search
-	inputField := tview.NewInputField().
-		SetLabel("Search/Create: ")
 
 	listTags.SetBorder(true)
 	listTags.SetTitle("Tags")
@@ -96,6 +105,19 @@ func main() {
 		AddItem("Item 1", "Description 1", '1', nil).
 		AddItem("Item 2", "Description 2", '2', nil).
 		AddItem("Item 3", "Description 3", '3', nil)
+
+	listNotes.SetBorder(true)
+	listNotes.SetTitle("Notes")
+
+	// Input field for search
+	searchField := tview.NewInputField().
+		SetLabel("Search/Create: ")
+
+	searchField.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		return event
+	})
+
+	searchableListByTextfield("Notes", searchField, listNotes)
 
 	textContent := tview.NewTextArea().
 		SetWrap(false).
@@ -107,9 +129,9 @@ func main() {
 
 	// Layout for the left side with fixed height for listTags
 	leftSide := tview.NewFlex().SetDirection(tview.FlexRow).
-		AddItem(listTags, 6, 1, true).    // Fixed height for listTags
-		AddItem(inputField, 2, 0, false). // Fixed height for input
-		AddItem(listNotes, 0, 2, false)   // Expandable list
+		AddItem(listTags, 6, 1, true).     // Fixed height for listTags
+		AddItem(searchField, 2, 0, false). // Fixed height for input
+		AddItem(listNotes, 0, 2, false)    // Expandable list
 
 	// Main layout with left and right sides
 	mainFlex := tview.NewFlex().
@@ -121,8 +143,8 @@ func main() {
 		switch event.Key() {
 		case tcell.KeyTAB: // Tab key to cycle through focus
 			if app.GetFocus() == listTags {
-				app.SetFocus(inputField)
-			} else if app.GetFocus() == inputField {
+				app.SetFocus(searchField)
+			} else if app.GetFocus() == searchField {
 				app.SetFocus(listNotes)
 			} else if app.GetFocus() == listNotes {
 				app.SetFocus(textContent)
@@ -135,7 +157,7 @@ func main() {
 	})
 
 	// Run the application with initial focus on listTags
-	if err := app.SetRoot(mainFlex, true).SetFocus(listTags).Run(); err != nil {
+	if err := app.SetRoot(mainFlex, true).SetFocus(searchField).Run(); err != nil {
 		panic(err)
 	}
 }
