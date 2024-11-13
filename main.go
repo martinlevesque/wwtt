@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 	"github.com/gdamore/tcell/v2"
+	"github.com/martinlevesque/wwtt/internal/storage"
 	"github.com/rivo/tview"
+	"log"
 	"strings"
 )
 
@@ -65,7 +67,6 @@ func findItemsList(tviewList *tview.List, itemNames []string, searchingFor strin
 			}
 		}
 	}
-
 }
 
 func retrieveTagNames() []string {
@@ -93,6 +94,12 @@ func makeListTags() *tview.List {
 func main() {
 	app := tview.NewApplication()
 
+	_, err := storage.Init("wwtt.json")
+
+	if err != nil {
+		log.Fatalf("Failed to initialize storage: %v", err)
+	}
+
 	// List for tags with border and title
 
 	listTags := makeListTags()
@@ -101,10 +108,8 @@ func main() {
 	listTags.SetTitle("Tags")
 
 	// Main list to show items
-	listNotes := tview.NewList().
-		AddItem("Item 1", "Description 1", '1', nil).
-		AddItem("Item 2", "Description 2", '2', nil).
-		AddItem("Item 3", "Description 3", '3', nil)
+	listNotes := tview.NewList()
+	findItemsList(listNotes, retrieveItems(), "")
 
 	listNotes.SetBorder(true)
 	listNotes.SetTitle("Notes")
