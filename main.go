@@ -9,42 +9,46 @@ import (
 	"strings"
 )
 
-func searchListInputCapture(itemsName string, list *tview.List, event *tcell.EventKey, search *string, getItems func() []string) *tcell.EventKey {
+type App struct {
+	EntriesStorage *storage.StorageFile
+}
+
+func (app *App) searchListInputCapture(itemsName string, list *tview.List, event *tcell.EventKey, search *string, getItems func() []string) *tcell.EventKey {
 	switch event.Key() {
 	case tcell.KeyRune:
 		keyStr := string(event.Rune())
 		*search += keyStr
 		list.SetTitle(fmt.Sprintf("%s (searching %s)", itemsName, *search))
-		findItemsList(list, getItems(), *search)
+		app.findItemsList(list, getItems(), *search)
 	case tcell.KeyBackspace, tcell.KeyBackspace2:
 		if len(*search) > 0 {
 			*search = (*search)[:len(*search)-1]
 		}
 
 		list.SetTitle(fmt.Sprintf("%s (searching %s)", itemsName, *search))
-		findItemsList(list, getItems(), *search)
+		app.findItemsList(list, getItems(), *search)
 	}
 
 	return event
 }
 
-func searchableList(itemsName string, list *tview.List) {
+func (app *App) searchableList(itemsName string, list *tview.List) {
 	search := ""
 
 	list.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		return searchListInputCapture(itemsName, list, event, &search, retrieveTagNames)
+		return app.searchListInputCapture(itemsName, list, event, &search, app.retrieveTagNames)
 	})
 }
 
-func searchableListByTextfield(itemsName string, searchTextField *tview.InputField, list *tview.List) {
+func (app *App) searchableListByTextfield(itemsName string, searchTextField *tview.InputField, list *tview.List) {
 	search := ""
 
 	searchTextField.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		return searchListInputCapture(itemsName, list, event, &search, retrieveItems)
+		return app.searchListInputCapture(itemsName, list, event, &search, app.retrieveItems)
 	})
 }
 
-func findItemsList(tviewList *tview.List, itemNames []string, searchingFor string) {
+func (app *App) findItemsList(tviewList *tview.List, itemNames []string, searchingFor string) {
 	currentIndex := tviewList.GetCurrentItem()
 	var currentLabel string
 
@@ -69,16 +73,22 @@ func findItemsList(tviewList *tview.List, itemNames []string, searchingFor strin
 	}
 }
 
-func retrieveTagNames() []string {
+func (app *App) retrieveTagNames() []string {
 	return []string{"all", "tag1", "tag2", "abc", "ab", "abcde"}
 }
 
-func retrieveItems() []string {
-	return []string{"item 1", "item 2", "item 3"}
+func (app *App) retrieveItems() []string {
+	items := []string{}
+
+	for _, item := range app.EntriesStorage.Notes {
+		items = append(items, item.Name)
+	}
+
+	return items
 }
 
-func makeListTags() *tview.List {
-	fixedItems := retrieveTagNames()
+func (app *App) makeListTags() *tview.List {
+	fixedItems := app.retrieveTagNames()
 
 	listTags := tview.NewList()
 
@@ -86,15 +96,15 @@ func makeListTags() *tview.List {
 		listTags.AddItem(tagName, "", 0, nil)
 	}
 
-	searchableList("Tags", listTags)
+	app.searchableList("Tags", listTags)
 
 	return listTags
 }
 
 func main() {
-	app := tview.NewApplication()
-
-	_, err := storage.Init("wwtt.json")
+	entriesStorage, err := storage.Init("wwtt.json")
+	app := &App{EntriesStorage: entriesStorage}
+	uiApp := tview.NewApplication()
 
 	if err != nil {
 		log.Fatalf("Failed to initialize storage: %v", err)
@@ -102,14 +112,14 @@ func main() {
 
 	// List for tags with border and title
 
-	listTags := makeListTags()
+	listTags := app.makeListTags()
 
 	listTags.SetBorder(true)
 	listTags.SetTitle("Tags")
 
 	// Main list to show items
 	listNotes := tview.NewList()
-	findItemsList(listNotes, retrieveItems(), "")
+	app.findItemsList(listNotes, app.retrieveItems(), "")
 
 	listNotes.SetBorder(true)
 	listNotes.SetTitle("Notes")
@@ -122,7 +132,7 @@ func main() {
 		return event
 	})
 
-	searchableListByTextfield("Notes", searchField, listNotes)
+	app.searchableListByTextfield("Notes", searchField, listNotes)
 
 	textContent := tview.NewTextArea().
 		SetWrap(false).
@@ -147,14 +157,14 @@ func main() {
 	mainFlex.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
 		case tcell.KeyTAB: // Tab key to cycle through focus
-			if app.GetFocus() == listTags {
-				app.SetFocus(searchField)
-			} else if app.GetFocus() == searchField {
-				app.SetFocus(listNotes)
-			} else if app.GetFocus() == listNotes {
-				app.SetFocus(textContent)
-			} else if app.GetFocus() == textContent {
-				app.SetFocus(listTags)
+			if uiApp.GetFocus() == listTags {
+				uiApp.SetFocus(searchField)
+			} else if uiApp.GetFocus() == searchField {
+				uiApp.SetFocus(listNotes)
+			} else if uiApp.GetFocus() == listNotes {
+				uiApp.SetFocus(textContent)
+			} else if uiApp.GetFocus() == textContent {
+				uiApp.SetFocus(listTags)
 			}
 		}
 
@@ -162,7 +172,7 @@ func main() {
 	})
 
 	// Run the application with initial focus on listTags
-	if err := app.SetRoot(mainFlex, true).SetFocus(searchField).Run(); err != nil {
+	if err := uiApp.SetRoot(mainFlex, true).SetFocus(searchField).Run(); err != nil {
 		panic(err)
 	}
 }

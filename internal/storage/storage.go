@@ -32,14 +32,13 @@ func Init(path string) (*StorageFile, error) {
 
 	// Read the contents of the file
 	data, err := io.ReadAll(file)
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
 	}
 
-	// Initialize a StorageFile instance
 	storageFile := &StorageFile{Path: path}
 
-	// Unmarshal the JSON data into the storageFile
 	if err := json.Unmarshal(data, storageFile); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal JSON: %w", err)
 	}
