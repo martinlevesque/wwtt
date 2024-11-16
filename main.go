@@ -87,6 +87,16 @@ func (app *App) retrieveItems() []string {
 	return items
 }
 
+func (app *App) findItem(itemName string, itemTag string) (storage.Note, bool) {
+	for _, item := range app.EntriesStorage.Notes {
+		if item.Name == itemName && (itemTag == "all" || item.Tag.Name == itemTag) {
+			return item, true
+		}
+	}
+
+	return storage.Note{}, false
+}
+
 func (app *App) makeListTags() *tview.List {
 	fixedItems := app.retrieveTagNames()
 
@@ -141,6 +151,14 @@ func main() {
 	textContent.SetText("truasdf", true)
 	textContent.SetTitle("Content")
 	textContent.SetBorder(true)
+
+	listNotes.SetChangedFunc(func(index int, mainText, secondaryText string, shortcut rune) {
+		note, noteFound := app.findItem(mainText, "all")
+
+		if noteFound {
+			textContent.SetText(note.Content, true)
+		}
+	})
 
 	// Layout for the left side with fixed height for listTags
 	leftSide := tview.NewFlex().SetDirection(tview.FlexRow).
