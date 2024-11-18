@@ -79,7 +79,19 @@ func (app *App) findItemsList(tviewList *tview.List, itemNames []string, searchi
 }
 
 func (app *App) retrieveTagNames(tag string) []string {
-	return []string{"all", "tag1", "tag2", "abc", "ab", "titi"}
+	items := []string{}
+	seen := make(map[string]struct{})
+	seen["all"] = struct{}{}
+	items = append(items, "all")
+
+	for _, item := range app.EntriesStorage.Notes {
+		if _, exists := seen[item.Tag.Name]; !exists {
+			seen[item.Tag.Name] = struct{}{} // Mark as added
+			items = append(items, item.Tag.Name)
+		}
+	}
+
+	return items
 }
 
 func (app *App) retrieveItems(tag string) []string {
