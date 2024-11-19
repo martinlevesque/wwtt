@@ -16,7 +16,10 @@ type App struct {
 	CurrentTag       string
 	CurrentSearchTag string
 	CurrentSearch    string
+	CurrentNoteName  string
 }
+
+// generic ui tools
 
 func (app *App) searchListInputCapture(itemsName string, list *tview.List, event *tcell.EventKey, search *string, tag string, getItems func(t string) []string) *tcell.EventKey {
 	switch event.Key() {
@@ -78,6 +81,8 @@ func (app *App) findItemsList(tviewList *tview.List, itemNames []string, searchi
 	}
 }
 
+// tags
+
 func (app *App) retrieveTagNames(tag string) []string {
 	items := []string{}
 	seen := make(map[string]struct{})
@@ -93,6 +98,22 @@ func (app *App) retrieveTagNames(tag string) []string {
 
 	return items
 }
+
+func (app *App) makeListTags() *tview.List {
+	fixedItems := app.retrieveTagNames("")
+
+	listTags := tview.NewList()
+
+	for _, tagName := range fixedItems {
+		listTags.AddItem(tagName, "", 0, nil)
+	}
+
+	app.searchableList(&app.CurrentSearchTag, app.CurrentTag, "Tags", listTags, &app.CurrentTag)
+
+	return listTags
+}
+
+// Notes
 
 func (app *App) retrieveItems(tag string) []string {
 	items := []string{}
@@ -116,20 +137,6 @@ func (app *App) findItem(itemName string, itemTag string) (storage.Note, bool) {
 	return storage.Note{}, false
 }
 
-func (app *App) makeListTags() *tview.List {
-	fixedItems := app.retrieveTagNames("")
-
-	listTags := tview.NewList()
-
-	for _, tagName := range fixedItems {
-		listTags.AddItem(tagName, "", 0, nil)
-	}
-
-	app.searchableList(&app.CurrentSearchTag, app.CurrentTag, "Tags", listTags, &app.CurrentTag)
-
-	return listTags
-}
-
 func (app *App) search() {
 	// with the current search and current tag
 	app.findItemsList(app.ListNotes, app.retrieveItems(app.CurrentTag), app.CurrentSearch)
@@ -141,6 +148,7 @@ func (app *App) loadNote(noteName string) {
 	if noteFound {
 		app.TextContent.SetText(note.Content, true)
 		app.TextContent.SetTitle(fmt.Sprintf("%s - tag %s", app.CurrentSearch, app.CurrentTag))
+		app.CurrentNoteName = noteName
 	} else {
 		app.TextContent.SetTitle("Content")
 	}
@@ -171,12 +179,21 @@ func main() {
 	listTags.SetBorder(true)
 	listTags.SetTitle("Tags")
 
+	listTags.SetChangedFunc(func(index int, mainText, secondaryText string, shortcut rune) {
+		app.CurrentTag = mainText
+		app.search()
+	})
+
 	// Main list to show items
 	app.ListNotes = tview.NewList()
 	app.findItemsList(app.ListNotes, app.retrieveItems(app.CurrentTag), "")
 
 	app.ListNotes.SetBorder(true)
 	app.ListNotes.SetTitle("Notes")
+
+	app.ListNotes.SetChangedFunc(func(index int, mainText, secondaryText string, shortcut rune) {
+		app.loadNote(mainText)
+	})
 
 	// Input field for search
 	searchField := tview.NewInputField().
@@ -196,13 +213,22 @@ func main() {
 	app.TextContent.SetTitle("Content")
 	app.TextContent.SetBorder(true)
 
-	listTags.SetChangedFunc(func(index int, mainText, secondaryText string, shortcut rune) {
-		app.CurrentTag = mainText
-		app.search()
-	})
+	app.TextContent.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		switch event.Key() {
+		case tcell.KeyCtrlS:
+			errRecording := entriesStorage.RecordNote(app.CurrentNoteName, app.TextContent.GetText())
 
-	app.ListNotes.SetChangedFunc(func(index int, mainText, secondaryText string, shortcut rune) {
-		app.loadNote(mainText)
+			if errRecording != nil {
+				app.TextContent.SetTitle("error recording")
+			}
+
+			errSaving := entriesStorage.Save()
+
+			if errSaving != nil {
+				app.TextContent.SetTitle("error saving ")
+			}
+		}
+		return event
 	})
 
 	// Layout for the left side with fixed height for listTags

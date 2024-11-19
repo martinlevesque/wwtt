@@ -45,3 +45,48 @@ func Init(path string) (*StorageFile, error) {
 
 	return storageFile, nil
 }
+
+func (sf *StorageFile) FindNote(name string) *Note {
+	for i := range sf.Notes {
+		if sf.Notes[i].Name == name {
+			return &sf.Notes[i]
+		}
+	}
+
+	return nil
+}
+
+func (sf *StorageFile) RecordNote(name string, content string) error {
+	note := sf.FindNote(name)
+
+	if note == nil {
+		return fmt.Errorf("failed to find the node")
+	}
+
+	note.Content = content
+
+	return nil
+}
+
+func (sf *StorageFile) Save() error {
+	// Serialize the StorageFile to JSON
+	data, err := json.MarshalIndent(*sf, "", "  ")
+
+	if err != nil {
+		return fmt.Errorf("failed to marshal data: %w", err)
+	}
+
+	// Write the JSON data to the file
+	file, err := os.Create(sf.Path)
+
+	if err != nil {
+		return fmt.Errorf("failed to create file: %w", err)
+	}
+	defer file.Close()
+
+	if _, err := file.Write(data); err != nil {
+		return fmt.Errorf("failed to write data to file: %w", err)
+	}
+
+	return nil
+}
