@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/atotto/clipboard"
 	"github.com/gdamore/tcell/v2"
 	"github.com/martinlevesque/wwtt/internal/storage"
 	"github.com/rivo/tview"
@@ -50,9 +51,9 @@ func (app *App) searchableList(search *string, tag string, itemsName string, lis
 	})
 }
 
-func (app *App) searchableListByTextfield(search *string, tag string, itemsName string, searchTextField *tview.InputField, list *tview.List) {
+func (app *App) searchableListByTextfield(search *string, itemsName string, searchTextField *tview.InputField, list *tview.List) {
 	searchTextField.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		return app.searchListInputCapture(itemsName, list, event, search, tag, app.retrieveItems)
+		return app.searchListInputCapture(itemsName, list, event, search, app.CurrentTag, app.retrieveItems)
 	})
 }
 
@@ -142,6 +143,14 @@ func (app *App) search() {
 	app.findItemsList(app.ListNotes, app.retrieveItems(app.CurrentTag), app.CurrentSearch)
 }
 
+func (app *App) copyNoteClipboard() {
+	noteContent := app.TextContent.GetText()
+
+	if err := clipboard.WriteAll(noteContent); err != nil {
+		app.TextContent.SetTitle("error copying to clipboard")
+	}
+}
+
 func (app *App) loadNote(noteName string) {
 	note, noteFound := app.findItem(noteName, app.CurrentTag)
 
@@ -195,21 +204,25 @@ func main() {
 		app.loadNote(mainText)
 	})
 
+	app.ListNotes.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		switch event.Key() {
+		case tcell.KeyCtrlX:
+			app.copyNoteClipboard()
+		}
+
+		return event
+	})
+
 	// Input field for search
 	searchField := tview.NewInputField().
 		SetLabel("Search/Create: ")
 
-	searchField.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		return event
-	})
-
-	app.searchableListByTextfield(&app.CurrentSearch, app.CurrentTag, "Notes", searchField, app.ListNotes)
+	app.searchableListByTextfield(&app.CurrentSearch, "Notes", searchField, app.ListNotes)
 
 	app.TextContent = tview.NewTextArea().
 		SetWrap(false).
 		SetPlaceholder("Enter text here...").
 		SetText("yooo", true)
-	app.TextContent.SetText("truasdf", true)
 	app.TextContent.SetTitle("Content")
 	app.TextContent.SetBorder(true)
 
@@ -227,6 +240,8 @@ func main() {
 			if errSaving != nil {
 				app.TextContent.SetTitle("error saving ")
 			}
+		case tcell.KeyCtrlX:
+			app.copyNoteClipboard()
 		}
 		return event
 	})
@@ -251,13 +266,18 @@ func main() {
 			} else if uiApp.GetFocus() == searchField {
 				uiApp.SetFocus(app.ListNotes)
 			} else if uiApp.GetFocus() == app.ListNotes {
-				uiApp.SetFocus(app.TextContent)
-			} else if uiApp.GetFocus() == app.TextContent {
 				uiApp.SetFocus(listTags)
 			}
 		case tcell.KeyEnter: // Tab key to cycle through focus
 			if uiApp.GetFocus() == searchField {
 				uiApp.SetFocus(app.ListNotes)
+			} else if uiApp.GetFocus() == app.ListNotes {
+				uiApp.SetFocus(app.TextContent)
+				app.loadNote(app.CurrentNoteName)
+			}
+		case tcell.KeyEscape:
+			if uiApp.GetFocus() == app.TextContent {
+				uiApp.SetFocus(listTags)
 			}
 		}
 
