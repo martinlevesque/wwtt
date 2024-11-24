@@ -171,10 +171,24 @@ func (app *App) loadNote(noteName string) {
 		app.TextContent.SetTitle("Content")
 	}
 }
+func (app *App) deleteCurrentNode() {
+	if app.ListNotes.GetItemCount() > 0 {
+		app.EntriesStorage.DeleteNote(app.CurrentNoteName, app.CurrentTag)
+		app.EntriesStorage.Save()
+		app.search()
+
+		if app.ListNotes.GetItemCount() == 0 {
+			app.TextContent.SetText("", true)
+		}
+	}
+}
 
 func (app *App) onCreateNote(noteName string) {
 	app.EntriesStorage.CreateNote(noteName, app.CurrentTag)
 	app.EntriesStorage.Save()
+	app.CurrentNoteName = app.CurrentSearch
+	app.search()
+	app.loadNote(app.CurrentNoteName)
 }
 
 func main() {
@@ -235,8 +249,7 @@ func main() {
 
 	app.TextContent = tview.NewTextArea().
 		SetWrap(false).
-		SetPlaceholder("Enter text here...").
-		SetText("yooo", true)
+		SetPlaceholder("Enter text here...")
 	app.TextContent.SetTitle("Content")
 	app.TextContent.SetBorder(true)
 
@@ -286,13 +299,18 @@ func main() {
 			if uiApp.GetFocus() == searchField {
 				uiApp.SetFocus(app.ListNotes)
 
-				if app.ListNotes.GetItemCount() == 0 {
+				_, noteFound := app.findItem(app.CurrentSearch, app.CurrentTag)
+
+				if !noteFound {
 					app.onCreateNote(app.CurrentSearch)
-					app.search()
 				}
 			} else if uiApp.GetFocus() == app.ListNotes {
 				uiApp.SetFocus(app.TextContent)
 				app.loadNote(app.CurrentNoteName)
+			}
+		case tcell.KeyDelete:
+			if uiApp.GetFocus() == app.ListNotes {
+				app.deleteCurrentNode()
 			}
 		case tcell.KeyEscape:
 			if uiApp.GetFocus() == app.TextContent {

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
+	"time"
 )
 
 type Tag struct {
@@ -12,9 +14,10 @@ type Tag struct {
 }
 
 type Note struct {
-	Name    string `json:"name"`
-	Content string `json:"content"`
-	Tag     Tag    `json:"tag"`
+	Name      string    `json:"name"`
+	Content   string    `json:"content"`
+	Tag       Tag       `json:"tag"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type StorageFile struct {
@@ -46,21 +49,22 @@ func Init(path string) (*StorageFile, error) {
 	return storageFile, nil
 }
 
-func (sf *StorageFile) FindNote(name string) *Note {
+func (sf *StorageFile) FindNote(name string) (*Note, int) {
 	for i := range sf.Notes {
 		if sf.Notes[i].Name == name {
-			return &sf.Notes[i]
+			return &sf.Notes[i], i
 		}
 	}
 
-	return nil
+	return nil, -1
 }
 
 func (sf *StorageFile) CreateNote(name string, tag string) error {
 	newNote := Note{
-		Name:    name,
-		Content: "",
-		Tag:     Tag{Name: tag},
+		Name:      name,
+		Content:   "",
+		Tag:       Tag{Name: tag},
+		UpdatedAt: time.Now(),
 	}
 
 	sf.Notes = append(sf.Notes, newNote)
@@ -69,18 +73,35 @@ func (sf *StorageFile) CreateNote(name string, tag string) error {
 }
 
 func (sf *StorageFile) RecordNote(name string, content string) error {
-	note := sf.FindNote(name)
+	note, _ := sf.FindNote(name)
 
 	if note == nil {
 		return fmt.Errorf("failed to find the node")
 	}
 
 	note.Content = content
+	note.UpdatedAt = time.Now()
 
 	return nil
 }
 
+func (sf *StorageFile) DeleteNote(name string, tag string) {
+	_, indexNote := sf.FindNote(name)
+
+	if indexNote >= 0 {
+		sf.Notes = append(sf.Notes[:indexNote], sf.Notes[indexNote+1:]...)
+	}
+}
+
+func (sf *StorageFile) SortNotesByUpdatedAtDesc() {
+	sort.Slice(sf.Notes, func(i, j int) bool {
+		return sf.Notes[i].UpdatedAt.After(sf.Notes[j].UpdatedAt)
+	})
+}
+
 func (sf *StorageFile) Save() error {
+	sf.SortNotesByUpdatedAtDesc()
+
 	// Serialize the StorageFile to JSON
 	data, err := json.MarshalIndent(*sf, "", "  ")
 
