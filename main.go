@@ -43,6 +43,15 @@ func (app *App) searchListInputCapture(itemsName string, list *tview.List, event
 
 func (app *App) searchableList(search *string, tag string, itemsName string, list *tview.List, updateSelected *string) {
 	list.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+
+		switch event.Key() {
+		case tcell.KeyEnter:
+			if list.GetItemCount() == 0 {
+				*updateSelected = *search
+				app.search()
+			}
+		}
+
 		return app.searchListInputCapture(itemsName, list, event, search, tag, app.retrieveTagNames)
 	})
 
@@ -163,6 +172,11 @@ func (app *App) loadNote(noteName string) {
 	}
 }
 
+func (app *App) onCreateNote(noteName string) {
+	app.EntriesStorage.CreateNote(noteName, app.CurrentTag)
+	app.EntriesStorage.Save()
+}
+
 func main() {
 	entriesStorage, err := storage.Init("wwtt.json")
 
@@ -271,6 +285,11 @@ func main() {
 		case tcell.KeyEnter: // Tab key to cycle through focus
 			if uiApp.GetFocus() == searchField {
 				uiApp.SetFocus(app.ListNotes)
+
+				if app.ListNotes.GetItemCount() == 0 {
+					app.onCreateNote(app.CurrentSearch)
+					app.search()
+				}
 			} else if uiApp.GetFocus() == app.ListNotes {
 				uiApp.SetFocus(app.TextContent)
 				app.loadNote(app.CurrentNoteName)

@@ -56,6 +56,18 @@ func (sf *StorageFile) FindNote(name string) *Note {
 	return nil
 }
 
+func (sf *StorageFile) CreateNote(name string, tag string) error {
+	newNote := Note{
+		Name:    name,
+		Content: "",
+		Tag:     Tag{Name: tag},
+	}
+
+	sf.Notes = append(sf.Notes, newNote)
+
+	return nil
+}
+
 func (sf *StorageFile) RecordNote(name string, content string) error {
 	note := sf.FindNote(name)
 
