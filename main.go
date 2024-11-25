@@ -13,6 +13,9 @@ import (
 type App struct {
 	EntriesStorage   *storage.StorageFile
 	ListNotes        *tview.List
+	ListTags         *tview.List
+	Legend           *tview.TextView
+	SearchField      *tview.InputField
 	TextContent      *tview.TextArea
 	CurrentTag       string
 	CurrentSearchTag string
@@ -191,11 +194,27 @@ func (app *App) onCreateNote(noteName string) {
 	app.loadNote(app.CurrentNoteName)
 }
 
+func (app *App) updateLegend(focusedComponent tview.Primitive) {
+	switch focusedComponent {
+	case app.ListTags:
+		app.Legend.SetText(`[yellow]TAB:[white] Next Focus [yellow]Enter:[white] Select Tag`)
+	case app.SearchField:
+		app.Legend.SetText(`[yellow]TAB:[white] Next Focus [yellow]Enter:[white] Search/Create Note`)
+	case app.ListNotes:
+		app.Legend.SetText(`[yellow]TAB:[white] Next Focus [yellow]Ctrl+X:[white] Copy Note [yellow]Delete:[white] Delete Note`)
+	case app.TextContent:
+		app.Legend.SetText(`[yellow]Ctrl+S:[white] Save [yellow]Ctrl+X:[white] Copy [yellow]Esc:[white] Go Back`)
+	default:
+		app.Legend.SetText("")
+	}
+}
+
 func main() {
 	entriesStorage, err := storage.Init("wwtt.json")
 
 	app := &App{
 		ListNotes:        nil,
+		ListTags:         nil,
 		TextContent:      nil,
 		EntriesStorage:   entriesStorage,
 		CurrentTag:       "all",
@@ -211,12 +230,12 @@ func main() {
 
 	// List for tags with border and title
 
-	listTags := app.makeListTags()
+	app.ListTags = app.makeListTags()
 
-	listTags.SetBorder(true)
-	listTags.SetTitle("Tags")
+	app.ListTags.SetBorder(true)
+	app.ListTags.SetTitle("Tags")
 
-	listTags.SetChangedFunc(func(index int, mainText, secondaryText string, shortcut rune) {
+	app.ListTags.SetChangedFunc(func(index int, mainText, secondaryText string, shortcut rune) {
 		app.CurrentTag = mainText
 		app.search()
 	})
@@ -242,10 +261,10 @@ func main() {
 	})
 
 	// Input field for search
-	searchField := tview.NewInputField().
+	app.SearchField = tview.NewInputField().
 		SetLabel("Search/Create: ")
 
-	app.searchableListByTextfield(&app.CurrentSearch, "Notes", searchField, app.ListNotes)
+	app.searchableListByTextfield(&app.CurrentSearch, "Notes", app.SearchField, app.ListNotes)
 
 	app.TextContent = tview.NewTextArea().
 		SetWrap(false).
@@ -275,9 +294,17 @@ func main() {
 
 	// Layout for the left side with fixed height for listTags
 	leftSide := tview.NewFlex().SetDirection(tview.FlexRow).
-		AddItem(listTags, 6, 1, true).      // Fixed height for listTags
-		AddItem(searchField, 2, 0, false).  // Fixed height for input
-		AddItem(app.ListNotes, 0, 2, false) // Expandable list
+		AddItem(app.ListTags, 6, 1, true).     // Fixed height for listTags
+		AddItem(app.SearchField, 2, 0, false). // Fixed height for input
+		AddItem(app.ListNotes, 0, 2, false)    // Expandable list
+
+	app.Legend = tview.NewTextView()
+	app.Legend.
+		SetDynamicColors(true).
+		SetText("Legend will appear here").
+		SetTextAlign(tview.AlignCenter).
+		SetBorder(true).
+		SetTitle("Legend")
 
 	// Main layout with left and right sides
 	mainFlex := tview.NewFlex().
@@ -288,15 +315,15 @@ func main() {
 	mainFlex.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
 		case tcell.KeyTAB: // Tab key to cycle through focus
-			if uiApp.GetFocus() == listTags {
-				uiApp.SetFocus(searchField)
-			} else if uiApp.GetFocus() == searchField {
+			if uiApp.GetFocus() == app.ListTags {
+				uiApp.SetFocus(app.SearchField)
+			} else if uiApp.GetFocus() == app.SearchField {
 				uiApp.SetFocus(app.ListNotes)
 			} else if uiApp.GetFocus() == app.ListNotes {
-				uiApp.SetFocus(listTags)
+				uiApp.SetFocus(app.ListTags)
 			}
 		case tcell.KeyEnter: // Tab key to cycle through focus
-			if uiApp.GetFocus() == searchField {
+			if uiApp.GetFocus() == app.SearchField {
 				uiApp.SetFocus(app.ListNotes)
 
 				_, noteFound := app.findItem(app.CurrentSearch, app.CurrentTag)
@@ -314,15 +341,21 @@ func main() {
 			}
 		case tcell.KeyEscape:
 			if uiApp.GetFocus() == app.TextContent {
-				uiApp.SetFocus(listTags)
+				uiApp.SetFocus(app.ListTags)
 			}
 		}
+
+		app.updateLegend(uiApp.GetFocus())
 
 		return event
 	})
 
+	layout := tview.NewFlex().SetDirection(tview.FlexRow).
+		AddItem(mainFlex, 0, 1, true).   // Main application layout
+		AddItem(app.Legend, 3, 0, false) // Fixed height for the legend
+
 	// Run the application with initial focus on listTags
-	if err := uiApp.SetRoot(mainFlex, true).SetFocus(searchField).Run(); err != nil {
+	if err := uiApp.SetRoot(layout, true).SetFocus(app.ListTags).Run(); err != nil {
 		panic(err)
 	}
 }
